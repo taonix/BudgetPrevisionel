@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Budget prévisionnel</title>
+
+    <link rel="preconnect" href="https://api.fontshare.com" />
+    <link
+            rel="stylesheet"
+            href="https://api.fontshare.com/v2/css?f[]=satoshi@1&display=swap"
+    />
+    <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { satoshi: ["Satoshi", "ui-sans-serif", "system-ui"] },
+                },
+            },
+        };
+    </script>
+
+    <style>
+        :root {
+            --red: #b80000;
+            --red-soft: #fff2f2;
+            --red-soft-2: #fbe9e9;
+
+            --green: #4ea10f;
+            --green-soft: #f4fbe9;
+            --green-soft-2: #eaf4e3;
+
+            --ink: #0b0b0e;
+            --line: rgba(0, 0, 0, 0.1);
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+        body {
+            font-family: Satoshi, ui-sans-serif, system-ui;
+            background: #fff;
+            color: var(--ink);
+        }
+
+        .pill {
+            border-radius: 9999px;
+        }
+
+        .ctx-pop {
+            animation: pop 120ms ease-out;
+            transform-origin: top left;
+        }
+        @keyframes pop {
+            from {
+                opacity: 0;
+                transform: translateY(-4px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body class="font-satoshi">
+    <div id="root"></div>
+
+    <!-- React (CDN) -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- Babel (pour JSX multi-fichiers) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Excel + PDF -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- Namespace -->
+    <script>
+        window.BudgetApp = window.BudgetApp || {};
+    </script>
+
+    <!-- Libs -->
+    <script type="text/babel" data-presets="react" src="./src/lib/utils.js"></script>
+    <script type="text/babel" data-presets="react" src="./src/lib/storage.js"></script>
+    <script type="text/babel" data-presets="react" src="./src/lib/excel.js"></script>
+    <script type="text/babel" data-presets="react" src="./src/lib/pdf.js"></script>
+
+    <!-- UI Components -->
+    <script type="text/babel" data-presets="react" src="./src/app/components/Buttons.jsx"></script>
+    <script type="text/babel" data-presets="react" src="./src/app/components/Fields.jsx"></script>
+    <script type="text/babel" data-presets="react" src="./src/app/components/Modal.jsx"></script>
+    <script type="text/babel" data-presets="react" src="./src/app/components/ContextMenu.jsx"></script>
+    <script type="text/babel" data-presets="react" src="./src/app/components/CategoryBlock.jsx"></script>
+    <script type="text/babel" data-presets="react" src="./src/app/components/Header.jsx"></script>
+    <script type="text/babel" data-presets="react" src="./src/app/components/SectionHeader.jsx"></script>
+
+    <!-- App -->
+    <script type="text/babel" data-presets="react" src="./src/app/App.jsx"></script>
+    <script type="text/babel" data-presets="react" src="./src/main.jsx"></script>
+</body>
+</html>
