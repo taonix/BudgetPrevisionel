@@ -4,9 +4,67 @@ window.BudgetApp = window.BudgetApp || {};
     const { Text } = ns.Field;
     const { Header, SectionHeader, CategoryBlock, ContextMenu } = ns;
 
+    function base64UrlEncode(str) {
+        const bytes = new TextEncoder().encode(str);
+        let bin = "";
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        const b64 = btoa(bin);
+        return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    }
+
+    function base64UrlDecode(b64url) {
+        const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((b64url.length + 3) % 4);
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new TextDecoder().decode(bytes);
+    }
+
+    function normalizeState(parsed) {
+        if (!parsed?.expenses?.categories || !parsed?.revenues?.categories) return null;
+        parsed.meta = parsed.meta || {};
+        if (!parsed.meta.title) parsed.meta.title = ns.defaultState().meta.title;
+        if (!parsed.meta.excelColor) parsed.meta.excelColor = "#6AA84F";
+        if (parsed.meta.excelExtraRows === undefined || parsed.meta.excelExtraRows === null) parsed.meta.excelExtraRows = 0;
+        return parsed;
+    }
+
+    function getStateFromUrl() {
+        try {
+            const url = new URL(window.location.href);
+            const data = url.searchParams.get("data");
+            if (!data) return null;
+            const json = base64UrlDecode(data);
+            const parsed = JSON.parse(json);
+            return normalizeState(parsed);
+        } catch {
+            return null;
+        }
+    }
+
+    function setUrlFromState(st) {
+        const url = new URL(window.location.href);
+        url.searchParams.set("data", base64UrlEncode(JSON.stringify(st)));
+        window.history.replaceState({}, "", url.toString());
+        return url.toString();
+    }
+
     ns.App = function App() {
-        const [state, setState] = React.useState(() => ns.loadState());
-        React.useEffect(() => ns.saveState(state), [state]);
+        const urlSyncRef = React.useRef(false);
+
+        const [state, setState] = React.useState(() => {
+            const fromUrl = getStateFromUrl();
+            if (fromUrl) {
+                urlSyncRef.current = true;
+                return fromUrl;
+            }
+            return ns.loadState();
+        });
+
+        React.useEffect(() => {
+            ns.saveState(state);
+            if (urlSyncRef.current) setUrlFromState(state);
+        }, [state]);
 
         const expTotal = React.useMemo(() => ns.sumSection(state.expenses), [state.expenses]);
         const revTotal = React.useMemo(() => ns.sumSection(state.revenues), [state.revenues]);
@@ -263,14 +321,9 @@ window.BudgetApp = window.BudgetApp || {};
             if (!file) return;
             try {
                 const txt = await file.text();
-                const parsed = JSON.parse(txt);
-                if (!parsed?.expenses?.categories || !parsed?.revenues?.categories) return;
-
-                parsed.meta = parsed.meta || {};
-                if (!parsed.meta.title) parsed.meta.title = ns.defaultState().meta.title;
-                if (!parsed.meta.excelColor) parsed.meta.excelColor = "#6AA84F";
-                if (parsed.meta.excelExtraRows === undefined || parsed.meta.excelExtraRows === null) parsed.meta.excelExtraRows = 0;
-
+                const parsed = normalizeState(JSON.parse(txt));
+                if (!parsed) return;
+                urlSyncRef.current = true;
                 setState(parsed);
             } catch {}
         };
@@ -322,6 +375,18 @@ window.BudgetApp = window.BudgetApp || {};
         const itemVerb = itemModal.editItemId ? "Modifier" : "Ajouter";
         const itemNoun = isExpenseItem ? "une dépense" : "une recette";
 
+        const onShare = async () => {
+            try {
+                urlSyncRef.current = true;
+                const shareUrl = setUrlFromState(state);
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(shareUrl);
+                } else {
+                    prompt("Copie l’URL :", shareUrl);
+                }
+            } catch {}
+        };
+
         return (
             <div className="min-h-screen">
                 <div className="max-w-[1480px] mx-auto px-8 pt-10 pb-24">
@@ -331,6 +396,7 @@ window.BudgetApp = window.BudgetApp || {};
                         onOpenExcelExport={openExcelExport}
                         onExportJSON={exportJSON}
                         onImportJSON={importJSON}
+                        onShare={onShare}
                     />
 
                     <div className="mt-10">
@@ -357,7 +423,8 @@ window.BudgetApp = window.BudgetApp || {};
                         </div>
 
                         <div className="mt-6 flex justify-end">
-                            <div className="inline-flex items-center h-11 px-6 pill bg-[var(--red)] text-white text-[18px] font-black">
+                            <div
+                                className="inline-flex items-center h-11 px-6 pill bg-[var(--red)] text-white text-[18px] font-black">
                                 {ns.euro(expTotal)}
                             </div>
                         </div>
@@ -387,7 +454,8 @@ window.BudgetApp = window.BudgetApp || {};
                         </div>
 
                         <div className="mt-6 flex justify-end">
-                            <div className="inline-flex items-center h-11 px-6 pill bg-[var(--green)] text-white text-[18px] font-black">
+                            <div
+                                className="inline-flex items-center h-11 px-6 pill bg-[var(--green)] text-white text-[18px] font-black">
                                 {ns.euro(revTotal)}
                             </div>
                         </div>
@@ -415,21 +483,12 @@ window.BudgetApp = window.BudgetApp || {};
                         onDeleteCat={() => openDeleteCategory(ctx.section, ctx.catId, ctx.tone)}
                     />
 
-                    {/* Title modal */}
-                    <Modal
-                        open={titleModal}
-                        title="Modifier le nom du budget"
-                        onClose={() => setTitleModal(false)}
-                        tone="red"
-                    >
+                    {/* ✅ MODALS MANQUANTS (cause du bug) */}
+
+                    <Modal open={titleModal} title="Modifier le nom du budget" onClose={() => setTitleModal(false)}
+                           tone="red">
                         <div className="space-y-4">
-                            <Text
-                                label="Nom du budget"
-                                value={tmpTitle}
-                                onChange={setTmpTitle}
-                                placeholder="Budget Prévisionnel..."
-                                required
-                            />
+                            <Text label="Nom du budget" value={tmpTitle} onChange={setTmpTitle} required/>
                             <div className="flex justify-end gap-3">
                                 <button
                                     className="h-10 px-4 rounded-[14px] border border-black/15 hover:bg-black/5 font-semibold"
@@ -449,21 +508,10 @@ window.BudgetApp = window.BudgetApp || {};
                         </div>
                     </Modal>
 
-                    {/* Add category modal */}
-                    <Modal
-                        open={catModal.open}
-                        title="Ajouter une catégorie"
-                        onClose={closeCatModal}
-                        tone={catModal.tone}
-                    >
+                    <Modal open={catModal.open} title="Ajouter une catégorie" onClose={closeCatModal}
+                           tone={catModal.tone}>
                         <div className="space-y-4">
-                            <Text
-                                label="Nom de la catégorie"
-                                value={catName}
-                                onChange={setCatName}
-                                placeholder="Ex: Transport, Matériel..."
-                                required
-                            />
+                            <Text label="Nom de la catégorie" value={catName} onChange={setCatName} required/>
                             <div className="flex justify-end gap-3">
                                 <button
                                     className="h-10 px-4 rounded-[14px] border border-black/15 hover:bg-black/5 font-semibold"
@@ -485,19 +533,13 @@ window.BudgetApp = window.BudgetApp || {};
                         </div>
                     </Modal>
 
-                    {/* Add / edit item modal */}
-                    <Modal
-                        open={itemModal.open}
-                        title={`${itemVerb} ${itemNoun}`}
-                        onClose={closeItemModal}
-                        tone={itemModal.tone}
-                    >
+                    <Modal open={itemModal.open} title={`${itemVerb} ${itemNoun}`} onClose={closeItemModal}
+                           tone={itemModal.tone}>
                         <div className="space-y-4">
                             <Text
                                 label="Nom"
                                 value={itemForm.name}
-                                onChange={(v) => setItemForm((f) => ({ ...f, name: v }))}
-                                placeholder="Ex: Location sono"
+                                onChange={(v) => setItemForm((f) => ({...f, name: v}))}
                                 required
                             />
                             <div className="grid grid-cols-2 gap-4">
@@ -506,7 +548,7 @@ window.BudgetApp = window.BudgetApp || {};
                                     type="number"
                                     rightHint=">= 1"
                                     value={String(itemForm.qty)}
-                                    onChange={(v) => setItemForm((f) => ({ ...f, qty: v }))}
+                                    onChange={(v) => setItemForm((f) => ({...f, qty: v}))}
                                     required
                                 />
                                 <Text
@@ -514,17 +556,16 @@ window.BudgetApp = window.BudgetApp || {};
                                     type="number"
                                     rightHint=">= 0"
                                     value={String(itemForm.price)}
-                                    onChange={(v) => setItemForm((f) => ({ ...f, price: v }))}
+                                    onChange={(v) => setItemForm((f) => ({...f, price: v}))}
                                     required
                                 />
                             </div>
                             <Text
                                 label="Lien (optionnel)"
                                 value={itemForm.link}
-                                onChange={(v) => setItemForm((f) => ({ ...f, link: v }))}
+                                onChange={(v) => setItemForm((f) => ({...f, link: v}))}
                                 placeholder="https://..."
                             />
-
                             <div className="flex justify-end gap-3">
                                 <button
                                     className="h-10 px-4 rounded-[14px] border border-black/15 hover:bg-black/5 font-semibold"
@@ -546,24 +587,23 @@ window.BudgetApp = window.BudgetApp || {};
                         </div>
                     </Modal>
 
-                    {/* Rename category modal */}
                     <Modal
                         open={renameModal.open}
                         title="Renommer la catégorie"
-                        onClose={() => setRenameModal({ open: false, tone: "red", section: null, catId: null })}
+                        onClose={() => setRenameModal({open: false, tone: "red", section: null, catId: null})}
                         tone={renameModal.tone}
                     >
                         <div className="space-y-4">
-                            <Text
-                                label="Nouveau nom"
-                                value={renameValue}
-                                onChange={setRenameValue}
-                                required
-                            />
+                            <Text label="Nouveau nom" value={renameValue} onChange={setRenameValue} required/>
                             <div className="flex justify-end gap-3">
                                 <button
                                     className="h-10 px-4 rounded-[14px] border border-black/15 hover:bg-black/5 font-semibold"
-                                    onClick={() => setRenameModal({ open: false, tone: "red", section: null, catId: null })}
+                                    onClick={() => setRenameModal({
+                                        open: false,
+                                        tone: "red",
+                                        section: null,
+                                        catId: null
+                                    })}
                                     type="button"
                                 >
                                     Annuler
@@ -581,13 +621,8 @@ window.BudgetApp = window.BudgetApp || {};
                         </div>
                     </Modal>
 
-                    {/* Excel export modal */}
-                    <Modal
-                        open={excelModal}
-                        title="Exporter en Excel"
-                        onClose={() => setExcelModal(false)}
-                        tone="green"
-                    >
+                    <Modal open={excelModal} title="Exporter en Excel" onClose={() => setExcelModal(false)}
+                           tone="green">
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <label className="block">
@@ -640,18 +675,25 @@ window.BudgetApp = window.BudgetApp || {};
                     <Modal
                         open={delCatModal.open}
                         title="Supprimer la catégorie"
-                        onClose={() => setDelCatModal({ open: false, tone: "red", section: null, catId: null })}
+                        onClose={() => setDelCatModal({open: false, tone: "red", section: null, catId: null})}
                         tone={delCatModal.tone}
                     >
                         <div className="space-y-4">
                             <div className="text-sm text-black/60">
-                                Supprimer <span className="font-extrabold text-black">{delCatName || "cette catégorie"}</span> et toutes ses lignes ?
+                                Supprimer <span
+                                className="font-extrabold text-black">{delCatName || "cette catégorie"}</span> et toutes
+                                ses lignes ?
                             </div>
 
                             <div className="flex justify-end gap-3">
                                 <button
                                     className="h-10 px-4 rounded-[14px] border border-black/15 hover:bg-black/5 font-semibold"
-                                    onClick={() => setDelCatModal({ open: false, tone: "red", section: null, catId: null })}
+                                    onClick={() => setDelCatModal({
+                                        open: false,
+                                        tone: "red",
+                                        section: null,
+                                        catId: null
+                                    })}
                                     type="button"
                                 >
                                     Annuler
@@ -673,17 +715,18 @@ window.BudgetApp = window.BudgetApp || {};
                     <Modal
                         open={clearModal.open}
                         title="Tout effacer"
-                        onClose={() => setClearModal({ open: false, tone: "red", section: null })}
+                        onClose={() => setClearModal({open: false, tone: "red", section: null})}
                         tone={clearModal.tone}
                     >
                         <div className="space-y-4">
                             <div className="text-sm text-black/60">
-                                Tout effacer dans <span className="font-extrabold text-black">{clearModal.section === "revenues" ? "Recettes" : "Dépenses"}</span> ?
+                                Tout effacer dans <span
+                                className="font-extrabold text-black">{clearModal.section === "revenues" ? "Recettes" : "Dépenses"}</span> ?
                             </div>
                             <div className="flex justify-end gap-3">
                                 <button
                                     className="h-10 px-4 rounded-[14px] border border-black/15 hover:bg-black/5 font-semibold"
-                                    onClick={() => setClearModal({ open: false, tone: "red", section: null })}
+                                    onClick={() => setClearModal({open: false, tone: "red", section: null})}
                                     type="button"
                                 >
                                     Annuler
