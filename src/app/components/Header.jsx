@@ -13,12 +13,14 @@ window.BudgetApp = window.BudgetApp || {};
         const importRef = React.useRef(null);
 
         return (
-            <div className="flex items-start justify-between gap-6">
-                <div>
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-[28px] font-extrabold tracking-[-0.02em]">{title}</h1>
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
+                <div className="min-w-0">
+                    <div className="flex items-start gap-3">
+                        <h1 className="text-[24px] md:text-[28px] font-extrabold tracking-[-0.02em] leading-tight break-words">
+                            {title}
+                        </h1>
                         <button
-                            className="inline-flex items-center gap-2 h-9 px-3 rounded-[12px] border border-black/15 hover:bg-black/5 active:scale-[.99]"
+                            className="inline-flex items-center gap-2 h-9 px-3 rounded-[12px] border border-black/15 hover:bg-black/5 active:scale-[.99] shrink-0"
                             onClick={onEditTitle}
                             title="Éditer"
                             type="button"
@@ -30,13 +32,13 @@ window.BudgetApp = window.BudgetApp || {};
                     <div className="text-sm text-black/35 mt-1">Générateur de budget prévisionnel</div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-end gap-3 flex-wrap md:flex-nowrap">
                     <Download icon="bi bi-file-earmark-spreadsheet" onClick={onOpenExcelExport}>
                         Export Excel
                     </Download>
 
-                    <Download icon="bi bi-copy" onClick={onShare}>
-                        Copier le lien
+                    <Download icon="bi bi-share" onClick={onShare}>
+                        Partager
                     </Download>
 
                     <Download icon="bi bi-upload" onClick={onExportJSON}></Download>
@@ -53,9 +55,14 @@ window.BudgetApp = window.BudgetApp || {};
                     <input
                         ref={importRef}
                         type="file"
-                        accept="application/json"
+                        accept=".json,application/json"
                         className="hidden"
-                        onChange={(e) => onImportJSON?.(e.target.files?.[0] || null)}
+                        onChange={(e) => {
+                            const f = e.target.files?.[0] || null;
+                            if (f) onImportJSON?.(f);
+                            // ✅ permet de ré-importer le même fichier + évite certains bugs de non-trigger
+                            e.target.value = "";
+                        }}
                     />
                 </div>
             </div>
