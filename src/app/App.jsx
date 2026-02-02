@@ -378,12 +378,12 @@ window.BudgetApp = window.BudgetApp || {};
         const onShare = async () => {
             try {
                 urlSyncRef.current = true;
-                const shareUrl = setUrlFromState(state);
-                if (navigator.clipboard?.writeText) {
-                    await navigator.clipboard.writeText(shareUrl);
-                } else {
-                    prompt("Copie l’URL :", shareUrl);
-                }
+                const hash = await ns.encodeShareHash(state);
+                const url = new URL(window.location.href);
+                url.hash = hash;
+                const shareUrl = url.toString();
+                if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(shareUrl);
+                else prompt("Copie l’URL :", shareUrl);
             } catch {}
         };
 
