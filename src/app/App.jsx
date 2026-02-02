@@ -700,6 +700,9 @@ window.BudgetApp = window.BudgetApp || {};
                             </div>
                         </div>
                     </Modal>
+                    <div className={'w-full justify-center items-center'}>
+                        <a href={"https://github.com/taonix"}>Made by Aubin</a>
+                    </div>
                 </div>
             </div>
         );
